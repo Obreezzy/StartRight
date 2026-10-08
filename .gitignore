@@ -15,3 +15,5 @@ data/processed/
 # Editors / OS
 .vscode/
 .DS_Store
+
+.pytest_cache/
