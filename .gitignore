@@ -1,0 +1,17 @@
+# Secrets
+.env
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Data (large or sensitive, never commit)
+data/raw/*
+!data/raw/.gitkeep
+data/processed/
+
+# Editors / OS
+.vscode/
+.DS_Store
