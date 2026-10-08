@@ -37,3 +37,8 @@ def test_percentage_contribution_rounds_half_up():
 def test_percentage_contribution_rejects_negative_values():
     with pytest.raises(ValueError):
         percentage_contribution(Decimal("-1"), Decimal("3.5"))
+
+
+
+def test_deliberately_failing():
+    assert 1 == 2
