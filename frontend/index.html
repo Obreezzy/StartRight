@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>StartRight</title>
+</head>
+<body>
+  <h1>StartRight</h1>
+  <p>API status: <strong id="api">checking...</strong></p>
+  <p>Database status: <strong id="db">checking...</strong></p>
+  <script>
+    fetch("/api/health").then(r => r.json())
+      .then(d => document.getElementById("api").textContent = d.status)
+      .catch(() => document.getElementById("api").textContent = "down");
+    fetch("/api/health/db").then(r => r.json())
+      .then(d => document.getElementById("db").textContent =
+        d.database + " (pgvector: " + d.pgvector + ")")
+      .catch(() => document.getElementById("db").textContent = "down");
+  </script>
+</body>
+</html>
