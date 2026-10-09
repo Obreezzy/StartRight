@@ -85,20 +85,20 @@ TOOLS = [
 ]
 
 
-def _fetch_hits(query: str, top_k: int = 4) -> list[dict]:
+def _fetch_hits(query: str, top_k: int = 4, scope: list[str] | None = None) -> list[dict]:
     """Search the database. Imported lazily so tests do not need a database."""
     from startright import store
     from startright.embeddings import embed_texts
 
     with store.connect() as conn:
-        return store.search(conn, embed_texts([query])[0], top_k)
+        return store.search(conn, embed_texts([query])[0], top_k, scope)
 
 
-def search_regulations(args: dict) -> dict:
+def search_regulations(args: dict, scope: list[str] | None = None) -> dict:
     query = str(args["query"]).strip()
     if not query:
         raise ValueError("query must not be empty")
-    hits = [h for h in _fetch_hits(query) if h["score"] >= MIN_SCORE]
+    hits = [h for h in _fetch_hits(query, scope=scope) if h["score"] >= MIN_SCORE]
     if not hits:
         return {"results": [], "note": "No relevant sources found."}
     return {
@@ -142,10 +142,10 @@ def check_deadline(args: dict, today: date) -> dict:
     }
 
 
-def run_tool(name: str, args: dict, today: date) -> dict:
+def run_tool(name: str, args: dict, today: date, scope: list[str] | None = None) -> dict:
     try:
         if name == "search_regulations":
-            return search_regulations(args)
+            return search_regulations(args, scope)
         if name == "calculate_fees":
             return calculate_fees(args)
         if name == "check_deadline":

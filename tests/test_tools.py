@@ -59,7 +59,7 @@ def test_search_filters_weak_matches_and_truncates(monkeypatch):
         {"title": "Weak", "page": 9, "source_type": "guide",
          "doc_date": None, "content": "noise", "score": 0.1},
     ]
-    monkeypatch.setattr(tools, "_fetch_hits", lambda query, top_k=4: hits)
+    monkeypatch.setattr(tools, "_fetch_hits", lambda query, top_k=4, scope=None: hits)
     result = run_tool("search_regulations", {"query": "company"}, TODAY)
     assert len(result["results"]) == 1
     assert result["results"][0]["title"] == "Act A"
@@ -67,6 +67,6 @@ def test_search_filters_weak_matches_and_truncates(monkeypatch):
 
 
 def test_search_with_no_good_hits_says_so(monkeypatch):
-    monkeypatch.setattr(tools, "_fetch_hits", lambda query, top_k=4: [])
+    monkeypatch.setattr(tools, "_fetch_hits", lambda query, top_k=4, scope=None: [])
     result = run_tool("search_regulations", {"query": "capital of France"}, TODAY)
     assert result["results"] == []

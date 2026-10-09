@@ -42,7 +42,7 @@ DEADLINE_ARGS = {"period_end": "2026-06-30", "day_of_month": 10}
 
 
 def test_agent_chains_search_then_deadline_then_answers(monkeypatch):
-    monkeypatch.setattr(tools, "_fetch_hits", lambda query, top_k=4: [NOTICE_HIT])
+    monkeypatch.setattr(tools, "_fetch_hits", lambda query, top_k=4, scope=None: [NOTICE_HIT])
     client = FakeClient([
         reply(tool_calls=[tool_call("1", "search_regulations", {"query": "VAT return due date"})]),
         reply(tool_calls=[tool_call("2", "check_deadline", DEADLINE_ARGS)]),
@@ -68,7 +68,7 @@ def test_deadline_without_a_source_is_blocked():
 
 
 def test_deadline_is_blocked_if_search_found_nothing(monkeypatch):
-    monkeypatch.setattr(tools, "_fetch_hits", lambda query, top_k=4: [])
+    monkeypatch.setattr(tools, "_fetch_hits", lambda query, top_k=4, scope=None: [])
     client = FakeClient([
         reply(tool_calls=[tool_call("1", "search_regulations", {"query": "anything"})]),
         reply(tool_calls=[tool_call("2", "check_deadline", DEADLINE_ARGS)]),
@@ -111,3 +111,34 @@ def test_system_prompt_contains_todays_date():
     client = FakeClient([reply(content="ok")])
     run_agent("Hi", client=client, model="test-model", today=TODAY)
     assert "2026-10-09" in client.requests[0]["messages"][0]["content"]
+
+
+def test_tool_outside_the_allowed_list_is_refused():
+    search_only = [t for t in tools.TOOLS if t["function"]["name"] == "search_regulations"]
+    client = FakeClient([
+        reply(tool_calls=[tool_call("1", "calculate_fees", {"items": []})]),
+        reply(content="done"),
+    ])
+    result = run_agent("Total?", client=client, model="test-model", today=TODAY, tools=search_only)
+    assert "not available" in result.steps[0].result["error"]
+    assert [t["function"]["name"] for t in client.requests[0]["tools"]] == ["search_regulations"]
+
+
+def test_source_numbers_continue_from_source_start_and_scope_is_passed(monkeypatch):
+    seen = {}
+
+    def fake_fetch(query, top_k=4, scope=None):
+        seen["scope"] = scope
+        return [NOTICE_HIT, {**NOTICE_HIT, "page": 2}]
+
+    monkeypatch.setattr(tools, "_fetch_hits", fake_fetch)
+    client = FakeClient([
+        reply(tool_calls=[tool_call("1", "search_regulations", {"query": "VAT"})]),
+        reply(content="Answer [7]."),
+    ])
+    result = run_agent("VAT?", client=client, model="test-model", today=TODAY,
+                       scope=["vat_act.pdf"], source_start=7)
+    assert sorted(result.sources) == [7, 8]
+    assert seen["scope"] == ["vat_act.pdf"]
+    tool_message = [m for m in client.requests[1]["messages"] if m["role"] == "tool"][0]
+    assert [r["n"] for r in json.loads(tool_message["content"])["results"]] == [7, 8]

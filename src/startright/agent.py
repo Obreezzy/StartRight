@@ -38,6 +38,7 @@ class AgentResult:
     answer: str
     steps: list[Step] = field(default_factory=list)
     tokens: int = 0
+    sources: dict[int, dict] = field(default_factory=dict)
 
 
 def _has_searched(steps: list[Step]) -> bool:
@@ -54,8 +55,17 @@ def run_agent(
     model: str | None = None,
     max_steps: int = 5,
     today: date | None = None,
+    system_prompt: str | None = None,
+    tools: list[dict] | None = None,
+    scope: list[str] | None = None,
+    source_start: int = 1,
 ) -> AgentResult:
-    """Let the model choose tools until it can answer, up to max_steps rounds."""
+    """Let the model choose tools until it can answer, up to max_steps rounds.
+
+    tools limits which tools the model may use; scope limits which documents the
+    search tool can see; source_start numbers search results from that value so
+    several agents in one team never reuse a citation number.
+    """
     if client is None:
         from groq import Groq
 
@@ -64,9 +74,14 @@ def run_agent(
     today = today or date.today()
     # gpt-oss models think before answering; keep that effort low to save tokens.
     extra = {"reasoning_effort": "low"} if "gpt-oss" in model else {}
+    tools = TOOLS if tools is None else tools
+    allowed = {tool["function"]["name"] for tool in tools}
+    prompt = (system_prompt or SYSTEM_PROMPT).replace("{today}", today.isoformat())
+    sources: dict[int, dict] = {}
+    next_source = source_start
 
     messages = [
-        {"role": "system", "content": SYSTEM_PROMPT.format(today=today.isoformat())},
+        {"role": "system", "content": prompt},
         {"role": "user", "content": question},
     ]
     steps: list[Step] = []
@@ -76,7 +91,7 @@ def run_agent(
         response = client.chat.completions.create(
             model=model,
             messages=messages,
-            tools=TOOLS,
+            tools=tools,
             tool_choice="auto",
             temperature=0.1,
             max_completion_tokens=1000,
@@ -89,7 +104,7 @@ def run_agent(
 
         if not calls:
             text = message.content or "The model returned an empty answer."
-            return AgentResult(answer=text, steps=steps, tokens=tokens)
+            return AgentResult(answer=text, steps=steps, tokens=tokens, sources=sources)
 
         messages.append(
             {
@@ -117,7 +132,9 @@ def run_agent(
             except ValueError:
                 args, result = {}, {"error": "Arguments were not valid JSON"}
             else:
-                if name == "check_deadline" and not _has_searched(steps):
+                if name not in allowed:
+                    result = {"error": f"Tool {name} is not available to you."}
+                elif name == "check_deadline" and not _has_searched(steps):
                     # Guardrail in code, not just in the prompt: a deadline day
                     # must come from a source, never from the model's memory.
                     result = {
@@ -126,7 +143,17 @@ def run_agent(
                         "check_deadline."
                     }
                 else:
-                    result = run_tool(name, args, today)
+                    result = run_tool(name, args, today, scope)
+                    if name == "search_regulations" and result.get("results"):
+                        for item in result["results"]:
+                            item["n"] = next_source
+                            sources[next_source] = {
+                                "title": item["title"],
+                                "page": item["page"],
+                                "source_type": item["source_type"],
+                                "date": item["date"],
+                            }
+                            next_source += 1
             steps.append(Step(name, args, result))
             messages.append(
                 {
@@ -143,4 +170,5 @@ def run_agent(
         ),
         steps=steps,
         tokens=tokens,
+        sources=sources,
     )
