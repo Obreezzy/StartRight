@@ -46,6 +46,20 @@ def ask(question: str) -> None:
     print(f"\nTokens used: {tokens}")
 
 
+def agent(question: str) -> None:
+    from startright.agent import run_agent
+
+    result = run_agent(question)
+    print("\nAgent steps:")
+    if not result.steps:
+        print("  (no tools called)")
+    for number, step in enumerate(result.steps, start=1):
+        outcome = "error" if "error" in step.result else "ok"
+        print(f"  {number}. {step.tool}({step.arguments}) -> {outcome}")
+    print("\n" + result.answer + "\n")
+    print(f"Tokens used: {result.tokens}")
+
+
 def main() -> None:
     load_dotenv()
     parser = argparse.ArgumentParser(prog="startright")
@@ -53,11 +67,15 @@ def main() -> None:
     sub.add_parser("ingest")
     ask_parser = sub.add_parser("ask")
     ask_parser.add_argument("question")
+    agent_parser = sub.add_parser("agent")
+    agent_parser.add_argument("question")
     args = parser.parse_args()
     if args.command == "ingest":
         ingest()
-    else:
+    elif args.command == "ask":
         ask(args.question)
+    else:
+        agent(args.question)
 
 
 if __name__ == "__main__":
