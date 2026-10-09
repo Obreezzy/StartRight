@@ -60,6 +60,29 @@ def agent(question: str) -> None:
     print(f"Tokens used: {result.tokens}")
 
 
+def team(question: str) -> None:
+    from startright.multiagent import SPECIALISTS, run_team
+
+    result = run_team(question)
+    print(f"\nPlan ({result.plan_source}):")
+    if not result.subtasks:
+        print("  (declined: not a business registration, tax or compliance question)")
+    for item in result.subtasks:
+        print(f"  - {item['agent']}: {item['task']}")
+    for finding in result.findings:
+        title = SPECIALISTS[finding["agent"]].title
+        print(f"\n{title} specialist steps:")
+        if not finding["steps"]:
+            print("  (no tools called)")
+        for number, step in enumerate(finding["steps"], start=1):
+            outcome = "error" if "error" in step.result else "ok"
+            print(f"  {number}. {step.tool}({step.arguments}) -> {outcome}")
+    if result.revisions:
+        print(f"\nVerifier asked for {result.revisions} revision(s).")
+    print("\n" + result.answer + "\n")
+    print(f"Tokens used: {result.tokens}")
+
+
 def main() -> None:
     load_dotenv()
     parser = argparse.ArgumentParser(prog="startright")
@@ -69,13 +92,17 @@ def main() -> None:
     ask_parser.add_argument("question")
     agent_parser = sub.add_parser("agent")
     agent_parser.add_argument("question")
+    team_parser = sub.add_parser("team")
+    team_parser.add_argument("question")
     args = parser.parse_args()
     if args.command == "ingest":
         ingest()
     elif args.command == "ask":
         ask(args.question)
-    else:
+    elif args.command == "agent":
         agent(args.question)
+    else:
+        team(args.question)
 
 
 if __name__ == "__main__":

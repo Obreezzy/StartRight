@@ -74,13 +74,23 @@ def replace_document(conn, meta: dict, records: list, vectors: list) -> None:
     conn.commit()
 
 
-def search(conn, query_vector: list[float], top_k: int = 4) -> list[dict]:
+def search(
+    conn,
+    query_vector: list[float],
+    top_k: int = 4,
+    scope: list[str] | None = None,
+) -> list[dict]:
+    """Nearest chunks. `scope` limits the search to files matching any of the
+    given SQL LIKE patterns (for example ['zimra_pn_%', 'vat_act.pdf'])."""
     literal = to_vector_literal(query_vector)
+    where = "WHERE source_file LIKE ANY(%s)" if scope else ""
+    params = [literal] + ([scope] if scope else []) + [literal, top_k]
     return conn.execute(
-        """SELECT title, url, source_type, doc_date, page, content,
-                  1 - (embedding <=> %s::vector) AS score
-           FROM chunks
-           ORDER BY embedding <=> %s::vector
-           LIMIT %s""",
-        (literal, literal, top_k),
+        f"""SELECT title, url, source_type, doc_date, page, content,
+                   1 - (embedding <=> %s::vector) AS score
+            FROM chunks
+            {where}
+            ORDER BY embedding <=> %s::vector
+            LIMIT %s""",
+        params,
     ).fetchall()
