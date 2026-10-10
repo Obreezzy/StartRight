@@ -4,3 +4,4 @@ sentence-transformers>=3.0
 groq>=0.11
 python-dotenv>=1.0
 langgraph>=0.2
+pydantic>=2.5
