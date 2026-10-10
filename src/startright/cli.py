@@ -83,6 +83,21 @@ def team(question: str) -> None:
     print(f"Tokens used: {result.tokens}")
 
 
+def checklist(question: str, as_json: bool) -> None:
+    from startright.structured import make_checklist
+
+    result = make_checklist(question)
+    if as_json and result.checklist:
+        print(result.checklist.model_dump_json(indent=2))
+    else:
+        print("\n" + result.text)
+    if result.errors:
+        print(f"\nRepairs needed: {len(result.errors)} (the model was shown these problems)")
+        for number, problems in enumerate(result.errors, start=1):
+            print(f"  attempt {number}: " + "; ".join(problems))
+    print(f"\nAttempts: {result.attempts}   Tokens used: {result.tokens}")
+
+
 def main() -> None:
     load_dotenv()
     parser = argparse.ArgumentParser(prog="startright")
@@ -94,6 +109,9 @@ def main() -> None:
     agent_parser.add_argument("question")
     team_parser = sub.add_parser("team")
     team_parser.add_argument("question")
+    checklist_parser = sub.add_parser("checklist")
+    checklist_parser.add_argument("question")
+    checklist_parser.add_argument("--json", action="store_true")
     args = parser.parse_args()
     if args.command == "ingest":
         ingest()
@@ -101,8 +119,10 @@ def main() -> None:
         ask(args.question)
     elif args.command == "agent":
         agent(args.question)
-    else:
+    elif args.command == "team":
         team(args.question)
+    else:
+        checklist(args.question, args.json)
 
 
 if __name__ == "__main__":
