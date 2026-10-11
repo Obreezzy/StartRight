@@ -1,3 +1,20 @@
+import unicodedata
+
+SOFT_HYPHEN = "\u00ad"
+
+
+def clean_text(text: str) -> str:
+    """Repair PDF text-extraction artefacts before chunking.
+
+    PDFs often store "fi", "ffi", "ff" and "fl" as single ligature characters, so
+    "office" is saved as "o\ufb03ce" and a search for "office" never matches it. NFKC
+    normalisation turns those back into plain letters. Also drops soft hyphens (invisible
+    line-break hints) and NUL characters (which Postgres rejects).
+    """
+    text = unicodedata.normalize("NFKC", text)
+    return text.replace(SOFT_HYPHEN, "").replace("\x00", "")
+
+
 def chunk_text(text: str, max_chars: int = 1000, overlap: int = 150) -> list[str]:
     """Split text into overlapping chunks, preferring sentence/word boundaries."""
     if max_chars <= 0 or overlap < 0 or overlap >= max_chars:

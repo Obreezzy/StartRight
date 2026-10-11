@@ -13,6 +13,7 @@ from datetime import date
 from pydantic import BaseModel, ValidationError
 
 from startright import tools
+from startright.guardrails import check_question
 from startright.multiagent import (
     DECLINE_MESSAGE,
     FOOTER,
@@ -107,6 +108,7 @@ def validate_against_sources(checklist: BusinessChecklist, sources: dict[int, di
             )
             continue
         text = source["text"]
+        evidence = f"{source['title']} {text}"  # the title names the Act and its chapter
         numbers = {float(x) for x in re.findall(r"\d+(?:\.\d+)?", text.replace(",", ""))}
         for fee in step.fees:
             if float(fee.amount) not in numbers:
@@ -115,7 +117,7 @@ def validate_against_sources(checklist: BusinessChecklist, sources: dict[int, di
                     f"appear in source {step.source_n}; remove it or list it under not_covered"
                 )
         claim_text = f"{step.action} {step.deadline or ''}"
-        for claim in ungrounded_claims(claim_text, text):
+        for claim in ungrounded_claims(claim_text, evidence):
             problems.append(
                 f"step {step.order}: '{claim}' does not appear in source {step.source_n}"
             )
@@ -199,6 +201,9 @@ def render_checklist(checklist: BusinessChecklist, sources: dict[int, dict]) -> 
 
 def make_checklist(question: str, client=None, model: str | None = None,
                    today: date | None = None) -> ChecklistResult:
+    refusal = check_question(question)
+    if refusal:
+        return ChecklistResult(text=refusal, declined=True)
     sources = gather_sources(question)
     if not sources:
         # Nothing relevant in the documents: refuse without calling the model.

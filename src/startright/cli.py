@@ -98,6 +98,32 @@ def checklist(question: str, as_json: bool) -> None:
     print(f"\nAttempts: {result.attempts}   Tokens used: {result.tokens}")
 
 
+def benchmark(validate_only: bool, modes: list[str], save: str) -> None:
+    import json
+
+    from startright import benchmark as bench
+    from startright import retrieval
+
+    items = bench.load_items(Path("data/benchmark.json"))
+    with store.connect() as conn:
+        if validate_only:
+            print(bench.format_validation(bench.validate_items(conn, items)))
+            return
+        reports = {}
+        for mode in modes:
+            print(f"running {mode}...")
+            reports[mode] = bench.evaluate(
+                items,
+                lambda question, m=mode: retrieval.search(question, top_k=10, mode=m, conn=conn),
+                mode=mode,
+            )
+    print(bench.format_report(reports))
+    Path(save).write_text(
+        json.dumps({m: r.ranks for m, r in reports.items()}, indent=2), encoding="utf-8"
+    )
+    print(f"\nPer-question ranks saved to {save}")
+
+
 def main() -> None:
     load_dotenv()
     parser = argparse.ArgumentParser(prog="startright")
@@ -112,6 +138,11 @@ def main() -> None:
     checklist_parser = sub.add_parser("checklist")
     checklist_parser.add_argument("question")
     checklist_parser.add_argument("--json", action="store_true")
+    bench_parser = sub.add_parser("benchmark")
+    bench_parser.add_argument("--validate", action="store_true",
+                              help="only check the benchmark file against the database")
+    bench_parser.add_argument("--modes", default="vector,bm25,hybrid,hybrid_rerank")
+    bench_parser.add_argument("--save", default="data/benchmark_results.json")
     args = parser.parse_args()
     if args.command == "ingest":
         ingest()
@@ -121,8 +152,10 @@ def main() -> None:
         agent(args.question)
     elif args.command == "team":
         team(args.question)
-    else:
+    elif args.command == "checklist":
         checklist(args.question, args.json)
+    else:
+        benchmark(args.validate, args.modes.split(","), args.save)
 
 
 if __name__ == "__main__":
