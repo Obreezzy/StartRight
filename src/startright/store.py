@@ -86,7 +86,7 @@ def search(
     where = "WHERE source_file LIKE ANY(%s)" if scope else ""
     params = [literal] + ([scope] if scope else []) + [literal, top_k]
     return conn.execute(
-        f"""SELECT title, url, source_type, doc_date, page, content,
+        f"""SELECT id, source_file, title, url, source_type, doc_date, page, content,
                    1 - (embedding <=> %s::vector) AS score
             FROM chunks
             {where}
@@ -94,3 +94,23 @@ def search(
             LIMIT %s""",
         params,
     ).fetchall()
+
+
+def load_chunks(conn) -> list[dict]:
+    """Every chunk without its vector: the keyword (BM25) index is built from these."""
+    return conn.execute(
+        """SELECT id, source_file, title, url, source_type, doc_date, page, content
+           FROM chunks ORDER BY id"""
+    ).fetchall()
+
+
+def scores_for_ids(conn, query_vector: list[float], ids: list[int]) -> dict[int, float]:
+    """Cosine similarity between the query and the given chunks."""
+    if not ids:
+        return {}
+    rows = conn.execute(
+        """SELECT id, 1 - (embedding <=> %s::vector) AS score
+           FROM chunks WHERE id = ANY(%s)""",
+        [to_vector_literal(query_vector), ids],
+    ).fetchall()
+    return {row["id"]: float(row["score"]) for row in rows}

@@ -13,6 +13,7 @@ from datetime import date
 from typing import TypedDict
 
 from startright.agent import SYSTEM_PROMPT, AgentResult, Step, run_agent
+from startright.guardrails import check_question
 from startright.tools import TOOLS
 
 MAX_REVISIONS = 1
@@ -173,6 +174,8 @@ CLAIMS = [
         r"(?:US\$|USD|ZWL|ZWG|ZiG|\$)\s?(?P<nums>\d[\d,]*(?:\.\d+)?)", re.I)),
     ("amount", re.compile(
         r"\b(?P<nums>\d[\d,]*(?:\.\d+)?)\s?(?:USD|ZWL|ZWG|ZiG)\b", re.I)),
+    ("section", re.compile(r"\b[Ss]ections?\s+(?P<name>\d+[A-Za-z]?)\b")),
+    ("chapter", re.compile(r"\bChapter\s+(?P<name>\d+:\d+)")),
     ("form", re.compile(
         r"\bForm\s+(?P<name>(?=[A-Za-z0-9‑\-]*\d)[A-Za-z0-9‑\-]+|[A-Z]{2,}[A-Za-z0-9‑\-]*)")),
 ]
@@ -233,9 +236,13 @@ def ungrounded_claims(answer: str, evidence: str, loose_evidence: str = "") -> l
     flagged: list[str] = []
     for kind, pattern in CLAIMS:
         for match in pattern.finditer(answer):
-            if kind == "form":
+            if kind in ("form", "chapter"):
                 name = _normalise(match.group("name"))
                 grounded = name in evidence or name in loose
+            elif kind == "section":
+                name = re.escape(_normalise(match.group("name")))
+                standalone = rf"(?<![\d.]){name}(?![\d])"
+                grounded = bool(re.search(standalone, evidence) or re.search(standalone, loose))
             else:
                 nums = [n.replace(",", "") for n in re.split(r"\s?[–-]\s?", match.group("nums"))]
                 grounded = all(
@@ -458,6 +465,9 @@ def run_team(question: str, client=None, model: str | None = None,
              today: date | None = None) -> TeamResult:
     import os
 
+    refusal = check_question(question)
+    if refusal:
+        return TeamResult(answer=refusal, plan_source="guardrail")
     if client is None:
         from groq import Groq
 

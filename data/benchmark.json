@@ -1,0 +1,580 @@
+[
+  {
+    "id": "q01",
+    "question": "What do I need to register a private company?",
+    "expected_files": [
+      "cobe_act_2019.pdf"
+    ],
+    "must_contain_any": [
+      "private company"
+    ],
+    "should_refuse": false,
+    "tag": "entity-type"
+  },
+  {
+    "id": "q02",
+    "question": "What is the definition of a private",
+    "expected_files": [
+      "cobe_act_2019.pdf"
+    ],
+    "must_contain_any": [
+      "definition of private"
+    ],
+    "should_refuse": false,
+    "tag": "entity-type"
+  },
+  {
+    "id": "q03",
+    "question": "How many members can a private business corporation have?",
+    "expected_files": [
+      "cobe_act_2019.pdf"
+    ],
+    "must_contain_any": [
+      "not exceeding twenty"
+    ],
+    "should_refuse": false,
+    "tag": "entity-type"
+  },
+  {
+    "id": "q04",
+    "question": "What must the name of a private business corporation end with?",
+    "expected_files": [
+      "cobe_act_2019.pdf"
+    ],
+    "must_contain_any": [
+      "pbc"
+    ],
+    "should_refuse": false,
+    "tag": "entity-type"
+  },
+  {
+    "id": "q05",
+    "question": "What does an incorporation statement for a private business corporation contain?",
+    "expected_files": [
+      "cobe_act_2019.pdf"
+    ],
+    "must_contain_any": [
+      "incorporation statement"
+    ],
+    "should_refuse": false,
+    "tag": "entity-type"
+  },
+  {
+    "id": "q06",
+    "question": "Can a private business corporation convert into a company?",
+    "expected_files": [
+      "cobe_act_2019.pdf"
+    ],
+    "must_contain_any": [
+      "conversion of private business corporation"
+    ],
+    "should_refuse": false,
+    "tag": "entity-type"
+  },
+  {
+    "id": "q07",
+    "question": "How are the constitutive documents of a company registered with the Registrar?",
+    "expected_files": [
+      "cobe_act_2019.pdf"
+    ],
+    "must_contain_any": [
+      "constitutive documents"
+    ],
+    "should_refuse": false,
+    "tag": "paraphrase"
+  },
+  {
+    "id": "q08",
+    "question": "What are the requirements for a foreign company to set up a place of business in Zimbabwe?",
+    "expected_files": [
+      "cobe_act_2019.pdf"
+    ],
+    "must_contain_any": [
+      "foreign company"
+    ],
+    "should_refuse": false,
+    "tag": "paraphrase"
+  },
+  {
+    "id": "q09",
+    "question": "Where must a company state its registered office and postal address?",
+    "expected_files": [
+      "cobe_act_2019.pdf"
+    ],
+    "must_contain_any": [
+      "postal address"
+    ],
+    "should_refuse": false,
+    "tag": "paraphrase"
+  },
+  {
+    "id": "q10",
+    "question": "What happens when a private business corporation changes its incorporation statement?",
+    "expected_files": [
+      "cobe_act_2019.pdf"
+    ],
+    "must_contain_any": [
+      "amended incorporation statement"
+    ],
+    "should_refuse": false,
+    "tag": "paraphrase"
+  },
+  {
+    "id": "q11",
+    "question": "Who qualifies for membership of a private business corporation?",
+    "expected_files": [
+      "cobe_act_2019.pdf"
+    ],
+    "must_contain_any": [
+      "requirements for membership"
+    ],
+    "should_refuse": false,
+    "tag": "entity-type"
+  },
+  {
+    "id": "q12",
+    "question": "How many days of maternity leave is a female employee entitled to?",
+    "expected_files": [
+      "labour_act.pdf"
+    ],
+    "must_contain_any": [
+      "maternity leave"
+    ],
+    "should_refuse": false,
+    "tag": "paraphrase"
+  },
+  {
+    "id": "q13",
+    "question": "When can maternity leave start before the expected delivery?",
+    "expected_files": [
+      "labour_act.pdf"
+    ],
+    "must_contain_any": [
+      "maternity leave"
+    ],
+    "should_refuse": false,
+    "tag": "paraphrase"
+  },
+  {
+    "id": "q14",
+    "question": "What does the Labour Act say about dismissing an employee?",
+    "expected_files": [
+      "labour_act.pdf"
+    ],
+    "must_contain_any": [
+      "dismiss"
+    ],
+    "should_refuse": false,
+    "tag": "exact-term"
+  },
+  {
+    "id": "q15",
+    "question": "How much notice must an employer give to end a contract of employment?",
+    "expected_files": [
+      "labour_act.pdf"
+    ],
+    "must_contain_any": [
+      "notice"
+    ],
+    "should_refuse": false,
+    "tag": "paraphrase"
+  },
+  {
+    "id": "q16",
+    "question": "What are the rules on collective bargaining agreements?",
+    "expected_files": [
+      "labour_act.pdf"
+    ],
+    "must_contain_any": [
+      "collective bargaining"
+    ],
+    "should_refuse": false,
+    "tag": "exact-term"
+  },
+  {
+    "id": "q17",
+    "question": "How long is vacation leave in a year?",
+    "expected_files": [
+      "labour_act.pdf"
+    ],
+    "must_contain_any": [
+      "vacation leave"
+    ],
+    "should_refuse": false,
+    "tag": "exact-term"
+  },
+  {
+    "id": "q18",
+    "question": "What is the procedure for a disciplinary hearing?",
+    "expected_files": [
+      "labour_act.pdf"
+    ],
+    "must_contain_any": [
+      "disciplinary"
+    ],
+    "should_refuse": false,
+    "tag": "exact-term"
+  },
+  {
+    "id": "q19",
+    "question": "What changes did the Labour Amendment Act 2023 make?",
+    "expected_files": [
+      "labour_amendment_2023.pdf"
+    ],
+    "must_contain_any": [
+      "amendment of section"
+    ],
+    "should_refuse": false,
+    "tag": "exact-term"
+  },
+  {
+    "id": "q20",
+    "question": "When must an employer register with the National Social Security Authority?",
+    "expected_files": [
+      "nssa_act.pdf"
+    ],
+    "must_contain_any": [
+      "employer"
+    ],
+    "should_refuse": false,
+    "tag": "paraphrase"
+  },
+  {
+    "id": "q21",
+    "question": "When must an employer register with NSSA?",
+    "expected_files": [
+      "nssa_act.pdf"
+    ],
+    "must_contain_any": [
+      "employer"
+    ],
+    "should_refuse": false,
+    "tag": "acronym"
+  },
+  {
+    "id": "q22",
+    "question": "What does NSSA do?",
+    "expected_files": [
+      "nssa_act.pdf"
+    ],
+    "must_contain_any": [
+      "authority"
+    ],
+    "should_refuse": false,
+    "tag": "acronym"
+  },
+  {
+    "id": "q23",
+    "question": "What powers does an NSSA inspector have?",
+    "expected_files": [
+      "nssa_act.pdf"
+    ],
+    "must_contain_any": [
+      "inspector"
+    ],
+    "should_refuse": false,
+    "tag": "acronym"
+  },
+  {
+    "id": "q24",
+    "question": "Who sits on the NSSA board?",
+    "expected_files": [
+      "nssa_act.pdf"
+    ],
+    "must_contain_any": [
+      "minister"
+    ],
+    "should_refuse": false,
+    "tag": "acronym"
+  },
+  {
+    "id": "q25",
+    "question": "What contributions must employers pay to the social security schemes?",
+    "expected_files": [
+      "nssa_act.pdf"
+    ],
+    "must_contain_any": [
+      "contribut"
+    ],
+    "should_refuse": false,
+    "tag": "paraphrase"
+  },
+  {
+    "id": "q26",
+    "question": "Who must register for VAT?",
+    "expected_files": [
+      "vat_act.pdf"
+    ],
+    "must_contain_any": [
+      "registered operator"
+    ],
+    "should_refuse": false,
+    "tag": "paraphrase"
+  },
+  {
+    "id": "q27",
+    "question": "What is input tax and output tax?",
+    "expected_files": [
+      "vat_act.pdf"
+    ],
+    "must_contain_any": [
+      "input tax"
+    ],
+    "should_refuse": false,
+    "tag": "exact-term"
+  },
+  {
+    "id": "q28",
+    "question": "What must a tax invoice show?",
+    "expected_files": [
+      "vat_act.pdf"
+    ],
+    "must_contain_any": [
+      "tax invoice"
+    ],
+    "should_refuse": false,
+    "tag": "exact-term"
+  },
+  {
+    "id": "q29",
+    "question": "Which supplies are zero-rated for VAT?",
+    "expected_files": [
+      "vat_act.pdf"
+    ],
+    "must_contain_any": [
+      "zero-rat",
+      "zero rat"
+    ],
+    "should_refuse": false,
+    "tag": "exact-term"
+  },
+  {
+    "id": "q30",
+    "question": "What are exempt supplies under the Value Added Tax Act?",
+    "expected_files": [
+      "vat_act.pdf"
+    ],
+    "must_contain_any": [
+      "exempt"
+    ],
+    "should_refuse": false,
+    "tag": "exact-term"
+  },
+  {
+    "id": "q31",
+    "question": "What penalties apply for submitting a VAT return late?",
+    "expected_files": [
+      "vat_act.pdf"
+    ],
+    "must_contain_any": [
+      "penalt"
+    ],
+    "should_refuse": false,
+    "tag": "paraphrase"
+  },
+  {
+    "id": "q32",
+    "question": "What did the Finance Act 2024 change about income tax?",
+    "expected_files": [
+      "finance_act_2024.pdf"
+    ],
+    "must_contain_any": [
+      "income tax act"
+    ],
+    "should_refuse": false,
+    "tag": "paraphrase"
+  },
+  {
+    "id": "q33",
+    "question": "Did the Finance Act 2024 amend the Value Added Tax Act?",
+    "expected_files": [
+      "finance_act_2024.pdf"
+    ],
+    "must_contain_any": [
+      "value added tax act"
+    ],
+    "should_refuse": false,
+    "tag": "exact-term"
+  },
+  {
+    "id": "q34",
+    "question": "When are VAT returns for the period ended 30 June 2026 due?",
+    "expected_files": [
+      "zimra_pn_41_2026.pdf"
+    ],
+    "must_contain_any": [
+      "july 2026"
+    ],
+    "should_refuse": false,
+    "tag": "notice"
+  },
+  {
+    "id": "q35",
+    "question": "When are VAT returns for the period ended 31 March 2026 due?",
+    "expected_files": [
+      "zimra_pn_23_2026.pdf"
+    ],
+    "must_contain_any": [
+      "april 2026"
+    ],
+    "should_refuse": false,
+    "tag": "notice"
+  },
+  {
+    "id": "q36",
+    "question": "When is the second quarter provisional tax payment due in 2026?",
+    "expected_files": [
+      "zimra_pn_36_2026.pdf"
+    ],
+    "must_contain_any": [
+      "june 2026"
+    ],
+    "should_refuse": false,
+    "tag": "notice"
+  },
+  {
+    "id": "q37",
+    "question": "What are the tax compliance obligations for trusts?",
+    "expected_files": [
+      "zimra_pn_19_2026.pdf"
+    ],
+    "must_contain_any": [
+      "trust"
+    ],
+    "should_refuse": false,
+    "tag": "notice"
+  },
+  {
+    "id": "q38",
+    "question": "Is there an opportunity to voluntarily disclose undeclared income?",
+    "expected_files": [
+      "zimra_pn_25_2026.pdf"
+    ],
+    "must_contain_any": [
+      "voluntar"
+    ],
+    "should_refuse": false,
+    "tag": "notice"
+  },
+  {
+    "id": "q39",
+    "question": "How do I update my taxpayer records with ZIMRA?",
+    "expected_files": [
+      "zimra_pn_18_2026.pdf"
+    ],
+    "must_contain_any": [
+      "taxpayer records",
+      "master data"
+    ],
+    "should_refuse": false,
+    "tag": "acronym"
+  },
+  {
+    "id": "q40",
+    "question": "What tax legislation changes took effect on 1 January 2026?",
+    "expected_files": [
+      "zimra_pn_50_2026.pdf"
+    ],
+    "must_contain_any": [
+      "finance act"
+    ],
+    "should_refuse": false,
+    "tag": "notice"
+  },
+  {
+    "id": "q41",
+    "question": "What is TaRMS?",
+    "expected_files": [
+      "zimra_pn_50_2026.pdf"
+    ],
+    "must_contain_any": [
+      "tarms"
+    ],
+    "should_refuse": false,
+    "tag": "exact-term"
+  },
+  {
+    "id": "q42",
+    "question": "What does the Harare shop licence application form ask for?",
+    "expected_files": [
+      "harare_shop_licence_form.pdf"
+    ],
+    "must_contain_any": [
+      "shop"
+    ],
+    "should_refuse": false,
+    "tag": "paraphrase"
+  },
+  {
+    "id": "q43",
+    "question": "How do I get a business licence in Harare for a hair salon?",
+    "expected_files": [
+      "harare_shop_licence_form.pdf"
+    ],
+    "must_contain_any": [
+      "shop"
+    ],
+    "should_refuse": false,
+    "tag": "missed-before"
+  },
+  {
+    "id": "q44",
+    "question": "Which Act governs shop licences in Harare?",
+    "expected_files": [
+      "harare_shop_licence_form.pdf"
+    ],
+    "must_contain_any": [
+      "shop licen"
+    ],
+    "should_refuse": false,
+    "tag": "exact-term"
+  },
+  {
+    "id": "q45",
+    "question": "What is the capital of France?",
+    "expected_files": [],
+    "must_contain_any": [],
+    "should_refuse": true,
+    "tag": "off-topic"
+  },
+  {
+    "id": "q46",
+    "question": "Who won the football World Cup in 2022?",
+    "expected_files": [],
+    "must_contain_any": [],
+    "should_refuse": true,
+    "tag": "off-topic"
+  },
+  {
+    "id": "q47",
+    "question": "Write me a poem about the sea.",
+    "expected_files": [],
+    "must_contain_any": [],
+    "should_refuse": true,
+    "tag": "off-topic"
+  },
+  {
+    "id": "q48",
+    "question": "How do I bake a chocolate cake?",
+    "expected_files": [],
+    "must_contain_any": [],
+    "should_refuse": true,
+    "tag": "off-topic"
+  },
+  {
+    "id": "q49",
+    "question": "What is the best smartphone to buy?",
+    "expected_files": [],
+    "must_contain_any": [],
+    "should_refuse": true,
+    "tag": "off-topic"
+  },
+  {
+    "id": "q50",
+    "question": "Explain how photosynthesis works.",
+    "expected_files": [],
+    "must_contain_any": [],
+    "should_refuse": true,
+    "tag": "off-topic"
+  }
+]

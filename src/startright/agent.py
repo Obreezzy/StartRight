@@ -3,6 +3,7 @@ import os
 from dataclasses import dataclass, field
 from datetime import date
 
+from startright.guardrails import check_question
 from startright.tools import TOOLS, run_tool
 
 SYSTEM_PROMPT = (
@@ -66,6 +67,10 @@ def run_agent(
     search tool can see; source_start numbers search results from that value so
     several agents in one team never reuse a citation number.
     """
+    if system_prompt is None:  # a person is asking directly, not the team passing a task
+        refusal = check_question(question)
+        if refusal:
+            return AgentResult(answer=refusal)
     if client is None:
         from groq import Groq
 

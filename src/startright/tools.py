@@ -86,12 +86,11 @@ TOOLS = [
 
 
 def _fetch_hits(query: str, top_k: int = 4, scope: list[str] | None = None) -> list[dict]:
-    """Search the database. Imported lazily so tests do not need a database."""
-    from startright import store
-    from startright.embeddings import embed_texts
+    """Search the documents (hybrid by default; see retrieval.py). Imported lazily so
+    tests do not need a database."""
+    from startright import retrieval
 
-    with store.connect() as conn:
-        return store.search(conn, embed_texts([query])[0], top_k, scope)
+    return retrieval.search(query, top_k=top_k, scope=scope)
 
 
 def search_regulations(args: dict, scope: list[str] | None = None) -> dict:
