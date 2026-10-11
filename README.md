@@ -2,7 +2,7 @@
 
 An AI assistant that helps aspiring business owners in Zimbabwe understand what they must register, license and pay, using local retrieval and grounded source citations.
 
-**Status:** Weeks 1-7 are done.
+**Status:** Weeks 1-8 are done.
 
 ## Stack
 - Python
@@ -10,6 +10,7 @@ An AI assistant that helps aspiring business owners in Zimbabwe understand what 
 - PostgreSQL 16 with pgvector in Docker
 - Local embeddings with sentence-transformers all-MiniLM-L6-v2 (384 dims)
 - Groq API model: openai/gpt-oss-20b with reasoning_effort low
+- Local retrieval with vector, BM25, hybrid and reranked hybrid modes
 - LangGraph
 - Pydantic v2
 - GitHub Actions CI
@@ -21,6 +22,8 @@ From the repository root:
 
 - Ingest the documents:
   `python -m startright.cli ingest`
+- Run the benchmark:
+  `python -m startright.cli benchmark [--validate]`
 - Ask a single question:
   `python -m startright.cli ask "What do I need to register a private company?"`
 - Run the tool-using agent:
@@ -31,6 +34,8 @@ From the repository root:
   `python -m startright.cli checklist "I want to open a salon"`
 - Run the checklist builder as JSON:
   `python -m startright.cli checklist "I want to open a salon" --json`
+- Run the local search API on your own machine:
+  `uvicorn startright.search_api:app --port 8001`
 
 The system is designed for a zero-budget setup. It uses free-tier or local services only, and the only external model call is the Groq answer generation step. Chunking, embedding and search are local and do not spend tokens.
 
@@ -43,6 +48,8 @@ StartRight is intentionally built for a zero budget. The database runs in Docker
 - [multi-agent-design.md](docs/multi-agent-design.md)
 - [rag-design.md](docs/rag-design.md)
 - [structured-output-design.md](docs/structured-output-design.md)
+- [hybrid-search-design.md](docs/hybrid-search-design.md)
+- [guardrails.md](docs/guardrails.md)
 - [test-questions.md](docs/test-questions.md)
 
 ## Contributing

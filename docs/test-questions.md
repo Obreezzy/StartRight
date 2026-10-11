@@ -67,6 +67,46 @@
 Weeks, months and years were not fact-checked in the same way as percentages, fees and form names.
 - The live retry loop never triggered in the runs observed; the proof of the repair path was in unit tests.
 
+## Week 8 hybrid retrieval and guardrail checks
+
+### Benchmark questions
+| # | Question | Area | Result | Notes |
+|---|---|---|---|---|
+| 1 | `q03` | Entity / PBC | MISS across all modes | The benchmark phrase may be too strict, or retrieval may still be failing on the legal wording. |
+| 2 | `q21` | Acronym / NSSA | PASS in hybrid and rerank | The acronym expansion fix in `retrieval.py` helped here; vector-only still missed it. |
+| 3 | `q26` / `q31` | VAT and notice questions | VECTOR-only wins | The plain vector baseline still found the VAT questions that BM25, hybrid and rerank missed. |
+| 4 | `q33` | General retrieval miss | MISS across all modes | Needs a follow-up check on whether the key phrase is too strict or the chunk is truly missing. |
+
+### Findings from Week 8
+- The code provides four retrieval modes: `vector`, `bm25`, `hybrid` and `hybrid_rerank`.
+- `RETRIEVAL_MODE` chooses the mode used by the agent, team and checklist flows.
+- The default `ask` command remains vector-only to preserve the Week 4 baseline.
+- Hybrid search alone was not a clear win on this benchmark: it tied vector on Hit@4 and was slightly below vector on MRR.
+- The measurable gain came from the reranker: `hybrid_rerank` reached 89% Hit@4 and 0.82 MRR after text cleaning, compared with vector at 84% and 0.76.
+- The benchmark dataset had a data-quality issue: ligature characters caused PDF text extraction to store sequences like `fi` and `fl` as single glyphs, which broke plain keyword matching in a few cases.
+- The text-cleaning fix changed the benchmark outcome only for `q02`, because few benchmark questions were affected by ligature-based terms.
+
+### Benchmark results after text cleaning
+- vector: 84% Hit@4, MRR 0.76
+- bm25: 82% Hit@4, MRR 0.74
+- hybrid: 84% Hit@4, MRR 0.75
+- hybrid_rerank: 89% Hit@4, MRR 0.82
+- refusals: 6/6 correct refusals in every mode; 0 false refusals in every mode
+
+### Benchmark results before text cleaning
+- vector: 82% Hit@4, MRR 0.73
+- bm25: 80% Hit@4, MRR 0.71
+- hybrid: 82% Hit@4, MRR 0.72
+- hybrid_rerank: 86% Hit@4, MRR 0.80
+
+### Honest summary
+- Plain hybrid was not the winner; hybrid plus reranking was.
+- Acronym handling improved for NSSA questions, but not every legal acronym is solved by the same expansion map.
+- No mode wins everywhere: vector still found some VAT questions that the BM25/hybrid paths missed.
+- Small benchmark deltas are directional only because the answerable set contains 44 questions; one question equals about 2.3 percentage points.
+- TODO(verify): confirm whether `q03` and `q33` are retrieval misses or benchmark-keyword errors.
+- TODO(verify): paste the ligature-count query result before and after text cleaning.
+
 ## Findings that motivate Week 8
 - Vector-only retrieval can miss the real legal provision even when a nearby page is semantically close.
 - Acronym handling is weak; full legal names must be used to find the correct document.
