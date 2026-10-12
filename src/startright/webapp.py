@@ -28,7 +28,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
-from startright import retrieval
+from startright import observability, retrieval
 from startright.guardrails import check_question
 
 log = logging.getLogger("startright.web")
@@ -227,15 +227,27 @@ def create_app(client_factory=None, clock=time.time) -> FastAPI:
     app = FastAPI(title="StartRight", docs_url=None, redoc_url=None, openapi_url=None)
     limiter, budget, stats = RateLimiter(clock), DailyBudget(clock), StatsLog(clock)
     holder: dict = {}
+    try:
+        observability.instrument_retrieval()
+    except Exception:  # tracing must never stop the app from starting
+        log.exception("could not instrument retrieval")
 
     def get_client():
         if client_factory:
-            return client_factory()
+            return observability.wrap_client(client_factory())
         if "client" not in holder:
             from groq import Groq
 
-            holder["client"] = Groq()
+            holder["client"] = observability.wrap_client(Groq())
         return holder["client"]
+
+    def access_denied(request: Request):
+        code = os.getenv("ACCESS_CODE")
+        if code and not hmac.compare_digest(
+            request.headers.get("x-access-code", "").encode(), code.encode()
+        ):
+            return JSONResponse({"error": "A valid access code is required."}, status_code=401)
+        return None
 
     @app.middleware("http")
     async def security_headers(request: Request, call_next):
@@ -275,13 +287,19 @@ def create_app(client_factory=None, clock=time.time) -> FastAPI:
     def insights():
         return load_insights()
 
+    @app.get("/api/observability")
+    def get_observability(request: Request):
+        denied = access_denied(request)
+        if denied:
+            return denied
+        return {**observability.dashboard(), "tokens_used_today": budget.used_today(),
+                "daily_token_budget": _int_env("DAILY_TOKEN_BUDGET", 60000)}
+
     @app.post("/api/chat")
     def chat(body: ChatRequest, request: Request):
-        code = os.getenv("ACCESS_CODE")
-        if code and not hmac.compare_digest(
-            request.headers.get("x-access-code", "").encode(), code.encode()
-        ):
-            return JSONResponse({"error": "A valid access code is required."}, status_code=401)
+        denied = access_denied(request)
+        if denied:
+            return denied
         wait = limiter.check(client_ip(request), _int_env("RATE_LIMIT_PER_HOUR", 15))
         if wait:
             minutes = max(1, wait // 60)
@@ -301,11 +319,17 @@ def create_app(client_factory=None, clock=time.time) -> FastAPI:
 
     def finish(mode: str, started: float, tokens: int, tools: int, outcome: str) -> float:
         seconds = time.time() - started
+        observability.annotate(mode=mode, tokens=tokens, outcome=outcome)
         budget.add(tokens)
         stats.record(mode, tokens, seconds, tools, outcome)
         return seconds
 
     def run_events(body: ChatRequest):
+        trace = observability.start_trace(
+            "chat", mode=body.mode, retrieval_mode=os.getenv("RETRIEVAL_MODE", "hybrid"))
+        return observability.resume(trace, request_events(body))
+
+    def request_events(body: ChatRequest):
         started = time.time()
         refusal = check_question(body.message)
         if refusal:
@@ -371,23 +395,30 @@ def create_app(client_factory=None, clock=time.time) -> FastAPI:
         })
 
     def checklist_events(message, client, model, today, started):
-        from startright.multiagent import DECLINE_MESSAGE, keyword_route
-        from startright.structured import make_checklist
+        from startright.multiagent import DECLINE_MESSAGE
+        from startright.structured import (
+            has_business_words, is_business_description, make_checklist, wrap_checklist_question,
+        )
 
-        if keyword_route(message)[1]:  # no business topic words at all
-            finish("checklist", started, 0, 0, "refused")
-            yield sse({"type": "final", "kind": "refusal", "answer": DECLINE_MESSAGE,
-                       "tokens": 0, "seconds": 0})
-            return
+        # The topic check looks at what the visitor typed, before it is rewritten into a question.
+        used = 0
+        if not has_business_words(message):
+            with observability.span("topic_check"):
+                is_business, used = is_business_description(client, model, message)
+            if not is_business:
+                finish("checklist", started, used, 0, "refused")
+                yield sse({"type": "final", "kind": "refusal", "answer": DECLINE_MESSAGE,
+                           "tokens": used, "seconds": round(time.time() - started, 1)})
+                return
         yield sse({"type": "stage", "id": "retrieve", "label": "Searching the documents"})
-        result = make_checklist(message, client=client, model=model, today=today)
+        result = make_checklist(wrap_checklist_question(message), client=client, model=model, today=today)
         if result.declined:
-            finish("checklist", started, 0, 0, "declined")
+            finish("checklist", started, used, 0, "declined")
             yield sse({"type": "final", "kind": "refusal", "answer": result.text,
-                       "tokens": 0, "seconds": 0})
+                       "tokens": used, "seconds": round(time.time() - started, 1)})
             return
         yield sse({"type": "stage", "id": "retrieved", "label": f"Found {len(result.sources)} relevant passages"})
-        seconds = finish("checklist", started, result.tokens, 0,
+        seconds = finish("checklist", started, result.tokens + used, 0,
                          "ok" if result.checklist else "failed")
         yield sse({
             "type": "final", "kind": "checklist",
@@ -396,7 +427,7 @@ def create_app(client_factory=None, clock=time.time) -> FastAPI:
             "message": result.text if result.checklist is None else "",
             "sources": source_list(result.sources),
             "attempts": result.attempts, "repairs": result.errors,
-            "tokens": result.tokens, "seconds": round(seconds, 1),
+            "tokens": result.tokens + used, "seconds": round(seconds, 1),
             "retrieval_mode": os.getenv("RETRIEVAL_MODE", "hybrid"),
         })
 
