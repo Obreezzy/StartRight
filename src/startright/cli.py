@@ -124,6 +124,22 @@ def benchmark(validate_only: bool, modes: list[str], save: str) -> None:
     print(f"\nPer-question ranks saved to {save}")
 
 
+def copydb() -> None:
+    import os
+
+    import psycopg
+    from psycopg.rows import dict_row
+
+    target_url = os.environ.get("TARGET_DATABASE_URL")
+    if not target_url:
+        raise SystemExit("Set TARGET_DATABASE_URL to the hosted database's connection string first.")
+    with store.connect() as source, psycopg.connect(
+        target_url, row_factory=dict_row, prepare_threshold=None
+    ) as target:
+        count = store.copy_chunks(source, target)
+    print(f"Copied {count} chunks to the hosted database.")
+
+
 def main() -> None:
     load_dotenv()
     parser = argparse.ArgumentParser(prog="startright")
@@ -143,6 +159,7 @@ def main() -> None:
                               help="only check the benchmark file against the database")
     bench_parser.add_argument("--modes", default="vector,bm25,hybrid,hybrid_rerank")
     bench_parser.add_argument("--save", default="data/benchmark_results.json")
+    sub.add_parser("copydb", help="copy all chunks to the database in TARGET_DATABASE_URL")
     args = parser.parse_args()
     if args.command == "ingest":
         ingest()
@@ -154,6 +171,8 @@ def main() -> None:
         team(args.question)
     elif args.command == "checklist":
         checklist(args.question, args.json)
+    elif args.command == "copydb":
+        copydb()
     else:
         benchmark(args.validate, args.modes.split(","), args.save)
 
