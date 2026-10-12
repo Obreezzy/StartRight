@@ -12,6 +12,7 @@ from dataclasses import dataclass, field
 from datetime import date
 from typing import TypedDict
 
+from startright import observability
 from startright.agent import SYSTEM_PROMPT, AgentResult, Step, run_agent
 from startright.guardrails import check_question
 from startright.tools import TOOLS
@@ -412,9 +413,10 @@ def build_graph(client, model: str, today: date):
         feedback = state.get("feedback") or {}
         for index in todo:
             sub = subtasks[index]
-            result = _run_specialist(
-                client, model, today, sub["agent"], sub["task"], feedback.get(index)
-            )
+            with observability.span("specialist", agent=sub["agent"]):
+                result = _run_specialist(
+                    client, model, today, sub["agent"], sub["task"], feedback.get(index)
+                )
             tokens += result.tokens
             findings[index] = {
                 "agent": sub["agent"],
@@ -452,11 +454,11 @@ def build_graph(client, model: str, today: date):
         return "compose"
 
     graph = StateGraph(State)
-    graph.add_node("coordinate", coordinate)
-    graph.add_node("specialists", specialists)
-    graph.add_node("verify", verify)
-    graph.add_node("prepare_revision", prepare_revision)
-    graph.add_node("compose", compose)
+    graph.add_node("coordinate", observability.traced_node("coordinate", coordinate))
+    graph.add_node("specialists", observability.traced_node("specialists", specialists))
+    graph.add_node("verify", observability.traced_node("verify", verify))
+    graph.add_node("prepare_revision", observability.traced_node("prepare_revision", prepare_revision))
+    graph.add_node("compose", observability.traced_node("compose", compose))
     graph.add_edge(START, "coordinate")
     graph.add_conditional_edges(
         "coordinate", after_coordinate,

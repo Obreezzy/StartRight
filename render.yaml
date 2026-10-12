@@ -25,3 +25,14 @@ services:
         value: "15"
       - key: DAILY_TOKEN_BUDGET
         value: "60000"
+      # Week 9 (optional): send traces to Langfuse. Leave the keys unset to skip it.
+      - key: LANGFUSE_PUBLIC_KEY
+        sync: false
+      - key: LANGFUSE_SECRET_KEY
+        sync: false
+      - key: LANGFUSE_HOST
+        value: https://cloud.langfuse.com
+      - key: SLOW_MS
+        value: "20000"
+      - key: HIGH_TOKENS
+        value: "8000"

@@ -16,4 +16,4 @@ data/processed/
 .vscode/
 .DS_Store
 
-.pytest_cache/
+.pytest_cache/data/traces.jsonl
