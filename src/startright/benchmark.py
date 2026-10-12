@@ -10,8 +10,7 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from startright.retrieval import scope_matches
-from startright.tools import MIN_SCORE
+from startright.retrieval import scope_matches, score_floor
 
 
 def load_items(path: Path) -> list[dict]:
@@ -53,8 +52,10 @@ class ModeReport:
 
 
 def evaluate(items: list[dict], search_fn, mode: str = "", k: int = 4,
-             min_score: float = MIN_SCORE) -> ModeReport:
+             min_score: float | None = None) -> ModeReport:
     """search_fn(question) must return ranked hits (best first), at least 10 deep."""
+    if min_score is None:
+        min_score = score_floor(mode or None)
     report = ModeReport(mode)
     for item in items:
         hits = search_fn(item["question"])

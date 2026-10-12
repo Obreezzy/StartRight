@@ -12,7 +12,7 @@ from datetime import date
 
 from pydantic import BaseModel, ValidationError
 
-from startright import tools
+from startright import retrieval, tools
 from startright.guardrails import check_question
 from startright.multiagent import (
     DECLINE_MESSAGE,
@@ -124,15 +124,47 @@ def validate_against_sources(checklist: BusinessChecklist, sources: dict[int, di
     return problems
 
 
+# What an owner needs under each heading, searched in addition to the question itself, so a
+# long scenario ("hair salon in Harare with two staff") cannot pull the search off course.
+TOPIC_QUERIES = {
+    "registration": "register a private company incorporation memorandum articles of association Registrar of Companies",
+    "tax": "register as a taxpayer ZIMRA income tax VAT registration",
+    "employment": "employer obligations employment contract employees NSSA registration",
+}
+FOREIGN_WORDS = ("foreign", "external", "non-resident", "nonresident", "branch", "overseas")
+FOREIGN_MARKERS = ("foreign company", "external company", "external companies")
+
+
+def _about_foreign_company(text: str) -> bool:
+    lowered = text.lower()
+    return any(marker in lowered for marker in FOREIGN_MARKERS)
+
+
 def gather_sources(question: str) -> dict[int, dict]:
-    """Search each relevant specialist's documents (local embeddings, zero tokens)."""
+    """Search each relevant specialist's documents (local retrieval, zero tokens).
+    Each domain is searched twice (the question, then a fixed topic query), duplicates are
+    dropped, and passages about foreign companies are skipped unless the question asks."""
     domains = ["registration", "tax"]
     if any(word in question.lower() for word in KEYWORDS["employment"]):
         domains.append("employment")
+    asks_foreign = any(word in question.lower() for word in FOREIGN_WORDS)
+    floor = retrieval.score_floor()
     sources: dict[int, dict] = {}
+    seen: set[tuple] = set()
     for key in domains:
-        for hit in tools._fetch_hits(question, top_k=3, scope=list(SPECIALISTS[key].scope)):
-            if hit["score"] >= MIN_SCORE:
+        scope = list(SPECIALISTS[key].scope)
+        taken = 0
+        for query in (question, TOPIC_QUERIES[key]):
+            for hit in tools._fetch_hits(query, top_k=3, scope=scope):
+                if taken >= 4 or hit["score"] < floor:
+                    continue
+                fingerprint = (hit["title"], hit["page"], hit["content"][:80])
+                if fingerprint in seen:
+                    continue
+                if not asks_foreign and _about_foreign_company(hit["content"]):
+                    continue
+                seen.add(fingerprint)
+                taken += 1
                 sources[len(sources) + 1] = {
                     "title": hit["title"],
                     "page": hit["page"],

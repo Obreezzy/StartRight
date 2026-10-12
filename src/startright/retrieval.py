@@ -5,6 +5,8 @@ Modes (set RETRIEVAL_MODE or pass mode=):
   bm25           keyword search only
   hybrid         vector + BM25 merged with Reciprocal Rank Fusion   (default)
   hybrid_rerank  the hybrid candidates re-scored by a local cross-encoder
+  bm25_light     keyword search only and NO embedding model, so it fits a 512 MB
+                 server (the Render free tier). Its "score" is lexical coverage.
 
 Everything runs on this computer, so it costs no API tokens. Each hit's "score" stays
 the vector cosine similarity, because the refusal guardrail (MIN_SCORE) relies on it.
@@ -19,7 +21,8 @@ from functools import lru_cache
 from startright import store
 from startright.embeddings import embed_texts
 
-MODES = ("vector", "bm25", "hybrid", "hybrid_rerank")
+MODES = ("vector", "bm25", "hybrid", "hybrid_rerank", "bm25_light")
+COSINE_FLOOR = 0.25  # same value as tools.MIN_SCORE
 RERANK_MODEL = "cross-encoder/ms-marco-MiniLM-L-6-v2"
 RRF_K = 60
 
@@ -99,10 +102,13 @@ class BM25Index:
         self.k1, self.b = k1, b
         self.postings: dict[str, list[tuple[int, int]]] = defaultdict(list)
         self.lengths: list[int] = []
+        self.doc_terms: list[frozenset[str]] = []
         for doc_id, text in enumerate(texts):
             tokens = tokenize(text)
             self.lengths.append(len(tokens))
-            for term, count in Counter(tokens).items():
+            counts = Counter(tokens)
+            self.doc_terms.append(frozenset(counts))
+            for term, count in counts.items():
                 self.postings[term].append((doc_id, count))
         self.n = len(texts)
         self.avg_length = (sum(self.lengths) / self.n) if self.n else 0.0
@@ -137,7 +143,21 @@ class Corpus:
                        if scope_matches(c["source_file"], scope)}
         hits = []
         for doc_id, score in self.index.search(query, top_k, allowed):
-            hits.append({**self.chunks[doc_id], "bm25": score})
+            hits.append({**self.chunks[doc_id], "bm25": score, "doc_id": doc_id})
+        return hits
+
+    def lexical(self, query: str, top_k: int, scope: list[str] | None) -> list[dict]:
+        """BM25 order, but each hit's "score" is the share of the question's informative
+        words (weighted by rarity) that the chunk contains. Words that appear nowhere in
+        the documents are ignored, so a business word like "salon" does not sink a hit."""
+        terms = {t for t in set(tokenize(query)) if t in self.index.postings}
+        if not terms:
+            return []
+        total = sum(self.index.idf(t) for t in terms)
+        hits = self.keyword(query, top_k, scope)
+        for hit in hits:
+            present = self.index.doc_terms[hit["doc_id"]]
+            hit["score"] = sum(self.index.idf(t) for t in terms if t in present) / total
         return hits
 
 
@@ -198,11 +218,23 @@ def rerank(query: str, hits: list[dict], top_k: int) -> list[dict]:
 
 # ---------- the public entry point ----------
 
+def score_floor(mode: str | None = None) -> float:
+    """The lowest "score" a hit may have to be used. Cosine similarity for the embedding
+    modes; lexical coverage for bm25_light (tune with LEXICAL_MIN_SCORE)."""
+    mode = mode or os.getenv("RETRIEVAL_MODE", "hybrid")
+    if mode == "bm25_light":
+        return float(os.getenv("LEXICAL_MIN_SCORE", "0.3"))
+    return COSINE_FLOOR
+
+
 def search(query: str, top_k: int = 4, scope: list[str] | None = None,
            mode: str | None = None, candidates: int = 20, conn=None) -> list[dict]:
     mode = mode or os.getenv("RETRIEVAL_MODE", "hybrid")
     if mode not in MODES:
         raise ValueError(f"mode must be one of {MODES}, got {mode!r}")
+    if mode == "bm25_light" and conn is None and _CORPUS is not None:
+        # the keyword index is already in memory: no database connection needed at all
+        return _CORPUS.lexical(expand_query(query), top_k, scope)
     own_connection = conn is None
     conn = conn or store.connect()
     try:
@@ -214,6 +246,8 @@ def search(query: str, top_k: int = 4, scope: list[str] | None = None,
 
 def _search(conn, query, top_k, scope, mode, candidates) -> list[dict]:
     text = query if mode == "vector" else expand_query(query)
+    if mode == "bm25_light":
+        return load_corpus(conn).lexical(text, top_k, scope)
     vector = embed_texts([text])[0]
     if mode == "vector":
         return store.search(conn, vector, top_k, scope)

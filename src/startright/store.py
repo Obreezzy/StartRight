@@ -5,16 +5,22 @@ from psycopg.rows import dict_row
 
 
 def database_url() -> str:
+    url = os.getenv("DATABASE_URL")  # hosted databases (Neon, Render) give one string
+    if url:
+        return url
     user = os.getenv("POSTGRES_USER", "startright")
     password = os.environ["POSTGRES_PASSWORD"]
     name = os.getenv("POSTGRES_DB", "startright")
-    host = os.getenv("POSTGRES_HOST", "localhost")
+    host = os.getenv("POSTGRES_HOST", "127.0.0.1")  # not "localhost": on Windows it tries IPv6 first and can stall
     port = os.getenv("POSTGRES_PORT", "5433")
     return f"postgresql://{user}:{password}@{host}:{port}/{name}"
 
 
 def connect() -> psycopg.Connection:
-    return psycopg.connect(database_url(), row_factory=dict_row)
+    # prepare_threshold=None: poolers such as Neon's PgBouncer cannot keep prepared
+    # statements between calls, so never create them.
+    return psycopg.connect(database_url(), row_factory=dict_row, prepare_threshold=None,
+                           connect_timeout=int(os.getenv("DB_CONNECT_TIMEOUT", "10")))
 
 
 def to_vector_literal(vector: list[float]) -> str:
@@ -114,3 +120,30 @@ def scores_for_ids(conn, query_vector: list[float], ids: list[int]) -> dict[int,
         [to_vector_literal(query_vector), ids],
     ).fetchall()
     return {row["id"]: float(row["score"]) for row in rows}
+
+
+def copy_chunks(source, target, batch: int = 200) -> int:
+    """Copy every chunk, vectors included, from one database to another (for example from
+    the local Docker database to a hosted one) without re-running the embedding model.
+    The target's chunks table is emptied first, so running it twice is safe."""
+    ensure_schema(target)
+    target.execute("TRUNCATE chunks RESTART IDENTITY")
+    target.commit()
+    rows = source.execute(
+        """SELECT source_file, title, url, source_type, doc_date, page, chunk_index, content,
+                  embedding::text AS embedding
+           FROM chunks ORDER BY id"""
+    ).fetchall()
+    insert = """INSERT INTO chunks (source_file, title, url, source_type, doc_date,
+                                   page, chunk_index, content, embedding)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s::vector)"""
+    for start in range(0, len(rows), batch):
+        part = rows[start:start + batch]
+        with target.cursor() as cur:
+            cur.executemany(insert, [
+                (r["source_file"], r["title"], r["url"], r["source_type"], r["doc_date"],
+                 r["page"], r["chunk_index"], r["content"], r["embedding"])
+                for r in part
+            ])
+        target.commit()
+    return len(rows)

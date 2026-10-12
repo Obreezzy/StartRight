@@ -97,7 +97,10 @@ def search_regulations(args: dict, scope: list[str] | None = None) -> dict:
     query = str(args["query"]).strip()
     if not query:
         raise ValueError("query must not be empty")
-    hits = [h for h in _fetch_hits(query, scope=scope) if h["score"] >= MIN_SCORE]
+    from startright import retrieval
+
+    floor = retrieval.score_floor()
+    hits = [h for h in _fetch_hits(query, scope=scope) if h["score"] >= floor]
     if not hits:
         return {"results": [], "note": "No relevant sources found."}
     return {

@@ -283,13 +283,11 @@ def verify_finding(finding: dict) -> list[str]:
     return problems
 
 
-def compose_answer(state: State) -> str:
-    if state.get("declined"):
-        return DECLINE_MESSAGE
-    findings = [f for f in state.get("findings", []) if f]
-    parts = []
-    cited = {}
-    offset = 0
+def renumber_citations(findings: list[dict]) -> tuple[list[str], dict[int, dict]]:
+    """Each specialist cites its own sources as [1], [2]...; shift them so numbers never
+    clash between specialists, whatever the model wrote. Returns the rewritten answers
+    and the cited sources keyed by their final number."""
+    answers, cited, offset = [], {}, 0
     for finding in findings:
         sources = finding["sources"]
 
@@ -300,28 +298,41 @@ def compose_answer(state: State) -> str:
                 return f"[{number + offset}]"
             return match.group(0)
 
-        # Each specialist cites its own sources as [1], [2]...; the code shifts them
-        # so numbers never clash between specialists, whatever the model wrote.
-        answer = CITATION.sub(renumber, finding["answer"])
+        answers.append(CITATION.sub(renumber, finding["answer"]))
         offset += max(sources, default=0)
+    return answers, cited
+
+
+def compose_parts(state: State) -> dict:
+    """The final answer in pieces, so a web page can lay them out: body, sources, notes."""
+    if state.get("declined"):
+        return {"body": DECLINE_MESSAGE, "sources": {}, "notes": []}
+    findings = [f for f in state.get("findings", []) if f]
+    answers, cited = renumber_citations(findings)
+    parts = []
+    for finding, answer in zip(findings, answers):
         if len(findings) > 1:
             parts.append(f"**{SPECIALISTS[finding['agent']].title}**\n{answer}")
         else:
             parts.append(answer)
-    text = "\n\n".join(parts)
+    notes = [
+        f"{SPECIALISTS[i['agent']].title}: {', '.join(i['problems'])}"
+        for i in state.get("issues", [])
+    ]
+    return {"body": "\n\n".join(parts), "sources": cited, "notes": notes}
 
-    if cited:
-        lines = [
-            f"[{n}] {src['title']} (page {src['page']})" for n, src in sorted(cited.items())
-        ]
+
+def compose_answer(state: State) -> str:
+    parts = compose_parts(state)
+    if state.get("declined"):
+        return parts["body"]
+    text = parts["body"]
+    if parts["sources"]:
+        lines = [f"[{n}] {src['title']} (page {src['page']})"
+                 for n, src in sorted(parts["sources"].items())]
         text += "\n\nSources:\n" + "\n".join(lines)
-
-    if state.get("issues"):
-        notes = "; ".join(
-            f"{SPECIALISTS[i['agent']].title}: {', '.join(i['problems'])}"
-            for i in state["issues"]
-        )
-        text += f"\n\nVerification notes (not fully resolved): {notes}."
+    if parts["notes"]:
+        text += f"\n\nVerification notes (not fully resolved): {'; '.join(parts['notes'])}."
     return text + "\n\n" + FOOTER
 
 
@@ -486,3 +497,13 @@ def run_team(question: str, client=None, model: str | None = None,
         tokens=final.get("tokens", 0),
         plan_source=final.get("plan_source", "model"),
     )
+
+
+def stream_team(question: str, client, model: str, today: date):
+    """Run the team and yield (node_name, update) as each step of the graph finishes,
+    so a web page can show progress live. The caller merges the updates into a state."""
+    graph = build_graph(client, model, today)
+    initial = {"question": question, "tokens": 0, "revisions": 0}
+    for chunk in graph.stream(initial, stream_mode="updates"):
+        for node, update in chunk.items():
+            yield node, update
