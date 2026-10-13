@@ -118,6 +118,12 @@ def benchmark(validate_only: bool, modes: list[str], save: str) -> None:
                 mode=mode,
             )
     print(bench.format_report(reports))
+    if any("cohere" in m for m in modes):
+        used, fell_back = retrieval.COHERE_STATS["cohere"], retrieval.COHERE_STATS["fallback"]
+        print(f"\nCohere Rerank calls: {used} worked, {fell_back} fell back to the un-reranked order.")
+        if fell_back:
+            print("Some results are NOT reranked (key missing, quota or rate limit). Set "
+                  "COHERE_MIN_INTERVAL=7 and rerun before quoting these numbers.")
     Path(save).write_text(
         json.dumps({m: r.ranks for m, r in reports.items()}, indent=2), encoding="utf-8"
     )

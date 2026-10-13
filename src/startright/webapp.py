@@ -29,6 +29,7 @@ from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
 from startright import observability, retrieval
+from startright import guards
 from startright.guardrails import check_question
 
 log = logging.getLogger("startright.web")
@@ -277,6 +278,7 @@ def create_app(client_factory=None, clock=time.time) -> FastAPI:
             "daily_token_budget": _int_env("DAILY_TOKEN_BUDGET", 60000),
             "tokens_used_today": budget.used_today(),
             "access_code_required": bool(os.getenv("ACCESS_CODE")),
+            "guardrails_ai": guards.status(),
         }
 
     @app.get("/api/stats")
@@ -332,6 +334,11 @@ def create_app(client_factory=None, clock=time.time) -> FastAPI:
     def request_events(body: ChatRequest):
         started = time.time()
         refusal = check_question(body.message)
+        message = body.message
+        if not refusal and guards.enabled():
+            # Optional Guardrails AI layer: masks personal data before anything is sent to the model.
+            with observability.span("guardrails_ai_input"):
+                message, refusal = guards.screen_input(message)
         if refusal:
             finish(body.mode, started, 0, 0, "refused")
             yield sse({"type": "final", "kind": "refusal", "answer": refusal, "tokens": 0, "seconds": 0})
@@ -339,9 +346,9 @@ def create_app(client_factory=None, clock=time.time) -> FastAPI:
         try:
             client, model, today = get_client(), os.environ["GROQ_MODEL"], date.today()
             if body.mode == "checklist":
-                yield from checklist_events(body.message, client, model, today, started)
+                yield from checklist_events(message, client, model, today, started)
             else:
-                yield from answer_events(body.message, client, model, today, started)
+                yield from answer_events(message, client, model, today, started)
         except Exception as exc:  # never leak internals to the page
             log.exception("request failed")
             finish(body.mode, started, 0, 0, "error")
@@ -389,7 +396,8 @@ def create_app(client_factory=None, clock=time.time) -> FastAPI:
         yield sse({
             "type": "final", "kind": "answer", "declined": bool(state.get("declined")),
             "body": parts["body"], "sources": source_list(parts["sources"]),
-            "notes": parts["notes"], "revisions": state.get("revisions", 0),
+            "notes": parts["notes"] + (guards.check_answer(parts["body"], set(parts["sources"]))
+                                       if guards.enabled() else []), "revisions": state.get("revisions", 0),
             "tokens": tokens, "seconds": round(seconds, 1),
             "retrieval_mode": os.getenv("RETRIEVAL_MODE", "hybrid"),
         })
