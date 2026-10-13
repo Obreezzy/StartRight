@@ -131,6 +131,8 @@ TOPIC_QUERIES = {
     "tax": "register as a taxpayer ZIMRA income tax VAT registration",
     "employment": "employer obligations employment contract employees NSSA registration",
 }
+# Most passages kept per heading when the checklist sources are gathered.
+PASSAGE_LIMIT = {"registration": 4, "tax": 4, "employment": 3}
 FOREIGN_WORDS = ("foreign", "external", "non-resident", "nonresident", "branch", "overseas")
 FOREIGN_MARKERS = ("foreign company", "external company", "external companies")
 
@@ -195,9 +197,10 @@ def gather_sources(question: str) -> dict[int, dict]:
     """Search each relevant specialist's documents (local retrieval, zero tokens).
     Each domain is searched twice (the question, then a fixed topic query), duplicates are
     dropped, and passages about foreign companies are skipped unless the question asks."""
-    domains = ["registration", "tax"]
-    if any(word in question.lower() for word in KEYWORDS["employment"]):
-        domains.append("employment")
+    # Employer duties are always searched: almost every shop, salon or restaurant ends up
+    # with staff, and an owner who never typed the word "staff" still needs to hear about
+    # them. They get a smaller share of the passages so they cannot crowd out registration.
+    domains = ["registration", "tax", "employment"]
     asks_foreign = any(word in question.lower() for word in FOREIGN_WORDS)
     floor = retrieval.score_floor()
     sources: dict[int, dict] = {}
@@ -205,9 +208,10 @@ def gather_sources(question: str) -> dict[int, dict]:
     for key in domains:
         scope = list(SPECIALISTS[key].scope)
         taken = 0
+        limit = PASSAGE_LIMIT[key]
         for query in (question, TOPIC_QUERIES[key]):
             for hit in tools._fetch_hits(query, top_k=3, scope=scope):
-                if taken >= 4 or hit["score"] < floor:
+                if taken >= limit or hit["score"] < floor:
                     continue
                 fingerprint = (hit["title"], hit["page"], hit["content"][:80])
                 if fingerprint in seen:
@@ -241,6 +245,9 @@ SYSTEM_PROMPT = (
     "6. Include only steps that apply to the person in the question. Ignore sources "
     "about other situations (for example foreign companies or non-residents) unless "
     "the question mentions them.\n"
+    "6b. If the question does not say the owner has or will hire employees, still list "
+    "the employer steps the sources state, but begin each action with 'If you hire "
+    "staff:'.\n"
     "7. Set office whenever a source names the body to deal with (for example the "
     "Registrar of Companies, ZIMRA or a council); otherwise leave it null.\n"
     "8. not_covered means 'not found in the sources given above', not 'does not "
