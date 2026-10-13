@@ -29,7 +29,7 @@ from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
 from startright import observability, retrieval
-from startright import guards
+from startright import guards, privacy
 from startright.guardrails import check_question
 
 log = logging.getLogger("startright.web")
@@ -334,7 +334,9 @@ def create_app(client_factory=None, clock=time.time) -> FastAPI:
     def request_events(body: ChatRequest):
         started = time.time()
         refusal = check_question(body.message)
-        message = body.message
+        message, masked = privacy.mask_personal_data(body.message)
+        if masked:
+            observability.annotate(personal_data_masked=",".join(masked))
         if not refusal and guards.enabled():
             # Optional Guardrails AI layer: masks personal data before anything is sent to the model.
             with observability.span("guardrails_ai_input"):

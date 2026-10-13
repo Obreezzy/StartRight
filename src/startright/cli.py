@@ -139,9 +139,25 @@ def copydb() -> None:
     target_url = os.environ.get("TARGET_DATABASE_URL")
     if not target_url:
         raise SystemExit("Set TARGET_DATABASE_URL to the hosted database's connection string first.")
+    from urllib.parse import urlparse
+
+    source_url = store.database_url()
+    source_host, target_host = urlparse(source_url).hostname, urlparse(target_url).hostname
+    print(f"Copying FROM host {source_host} TO host {target_host}")
+    if source_url == target_url or source_host == target_host:
+        raise SystemExit(
+            "The source and the target are the same database, so copying would empty it.\n"
+            "The app reads DATABASE_URL when it is set. Clear it in this terminal with\n"
+            "  Remove-Item Env:DATABASE_URL\n"
+            "and check Windows environment variables, so the source is your local database (127.0.0.1)."
+        )
     with store.connect() as source, psycopg.connect(
         target_url, row_factory=dict_row, prepare_threshold=None
     ) as target:
+        have = source.execute("SELECT count(*) AS n FROM chunks").fetchone()["n"]
+        if have == 0:
+            raise SystemExit("The source database has 0 chunks, so there is nothing to copy. "
+                             "Run: python -m startright.cli ingest")
         count = store.copy_chunks(source, target)
     print(f"Copied {count} chunks to the hosted database.")
 
