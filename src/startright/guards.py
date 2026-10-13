@@ -25,25 +25,9 @@ import os
 import re
 from functools import lru_cache
 
-# ---------- personal data (pure Python: works with or without Guardrails AI) ----------
+# ---------- personal data: lives in startright.privacy (works with or without Guardrails AI) ----------
 
-PERSONAL_DATA = [
-    # Zimbabwe national ID: 2 digits, 6-7 digits, a check letter, 2 digits (63-123456 K 42)
-    ("ID number", re.compile(r"(?<![\w-])\d{2}[\s-]?\d{6,7}[\s-]?[A-Za-z][\s-]?\d{2}(?![\w])")),
-    # mobile numbers: 077 123 4567, 0771234567, +263 77 123 4567, 263771234567
-    ("phone number", re.compile(r"(?<![\w+])(?:\+?263|0)[\s-]?7[1-9](?:[\s-]?\d){7}(?!\d)")),
-    ("email address", re.compile(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+")),
-]
-
-
-def mask_personal_data(text: str) -> tuple[str, list[str]]:
-    """Replace personal identifiers with placeholders. Returns (masked text, kinds found)."""
-    found: list[str] = []
-    for label, pattern in PERSONAL_DATA:
-        text, count = pattern.subn(f"[{label}]", text)
-        if count:
-            found.append(label)
-    return text, found
+from startright.privacy import PERSONAL_DATA, mask_personal_data  # noqa: E402,F401
 
 
 CITATION = re.compile(r"\[(\d+)\]")
