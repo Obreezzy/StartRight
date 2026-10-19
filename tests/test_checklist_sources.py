@@ -53,10 +53,44 @@ def test_employer_duties_are_searched_even_when_the_question_never_mentions_staf
 
 
 def test_employment_passages_are_capped_below_registration(monkeypatch):
-    many = [_hit(f"Employer duty number {i}.", i, title="Labour Act") for i in range(10)]
+    many = [_hit(f"Employer duty number {i}.", i, title=f"Labour Act part {i}") for i in range(10)]
+    for i, hit in enumerate(many):
+        hit["source_file"] = f"labour_{i}.pdf"
     monkeypatch.setattr(tools, "_fetch_hits", lambda q, top_k=4, scope=None:
                         many if scope and "labour_act.pdf" in scope else [])
     monkeypatch.setattr(structured.retrieval, "score_floor", lambda mode=None: 0.0)
     sources = structured.gather_sources("I want to open a bakery")
     assert len(sources) == structured.PASSAGE_LIMIT["employment"]
     assert structured.PASSAGE_LIMIT["employment"] < structured.PASSAGE_LIMIT["registration"]
+
+
+def _typed(content, source_file, source_type, page=1):
+    hit = _hit(content, page, title=source_file)
+    hit["source_file"], hit["source_type"] = source_file, source_type
+    return hit
+
+
+def test_official_documents_come_before_guides_and_only_one_guide_is_used(monkeypatch):
+    hits = [_typed("Guide step A.", "guide_a.pdf", "guide"),
+            _typed("Guide step B.", "guide_b.pdf", "guide"),
+            _typed("Act says register.", "shop_licences_act.pdf", "official"),
+            _typed("Council page says apply.", "harare_business_licensing.pdf", "official")]
+    monkeypatch.setattr(tools, "_fetch_hits", lambda q, top_k=4, scope=None:
+                        hits if scope and "shop_licences_act.pdf" in scope else [])
+    monkeypatch.setattr(structured.retrieval, "score_floor", lambda mode=None: 0.0)
+    sources = structured.gather_sources("Hair salon in Harare")
+    kinds = [s["source_type"] for s in sources.values()]
+    assert kinds[:2] == ["official", "official"]
+    assert kinds.count("guide") == 1
+
+
+def test_one_document_cannot_fill_every_slot(monkeypatch):
+    zimra = [_typed(f"ZIMRA text {i}.", "zimra_new_businesses.pdf", "official", page=i) for i in range(6)]
+    vat = [_typed("VAT registration threshold.", "vat_act.pdf", "official", page=9)]
+    monkeypatch.setattr(tools, "_fetch_hits", lambda q, top_k=4, scope=None:
+                        zimra + vat if scope and "vat_act.pdf" in scope else [])
+    monkeypatch.setattr(structured.retrieval, "score_floor", lambda mode=None: 0.0)
+    sources = structured.gather_sources("Hair salon in Harare")
+    titles = [s["title"] for s in sources.values()]
+    assert "vat_act.pdf" in titles
+    assert titles.count("zimra_new_businesses.pdf") <= structured.PER_DOCUMENT_LIMIT

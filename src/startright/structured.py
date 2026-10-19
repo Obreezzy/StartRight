@@ -5,6 +5,7 @@ validate the shape (Pydantic) and the facts (against the sources) -> if anything
 fails, show the model the problems and let it repair, up to max_retries times.
 """
 import json
+from itertools import zip_longest
 import os
 import re
 from dataclasses import dataclass, field
@@ -107,6 +108,12 @@ def validate_against_sources(checklist: BusinessChecklist, sources: dict[int, di
                 f" (valid numbers: {sorted(sources)})"
             )
             continue
+        if source.get("source_type") == "guide" and step.fees:
+            problems.append(
+                f"step {step.order}: fees must come from an official source, not from a guide "
+                f"(source {step.source_n} is a guide); remove the fee and say to check with the "
+                "council or the Registrar"
+            )
         text = source["text"]
         evidence = f"{source['title']} {text}"  # the title names the Act and its chapter
         numbers = {float(x) for x in re.findall(r"\d+(?:\.\d+)?", text.replace(",", ""))}
@@ -129,10 +136,13 @@ def validate_against_sources(checklist: BusinessChecklist, sources: dict[int, di
 TOPIC_QUERIES = {
     "registration": "register a private company incorporation memorandum articles of association Registrar of Companies",
     "tax": "register as a taxpayer ZIMRA income tax VAT registration",
-    "employment": "employer obligations employment contract employees NSSA registration",
+    "employment": "employer must register with NSSA social security contributions employees pension",
 }
 # Most passages kept per heading when the checklist sources are gathered.
 PASSAGE_LIMIT = {"registration": 4, "tax": 4, "employment": 3}
+CANDIDATES_PER_QUERY = 8  # how deep each search looks before choosing
+PER_DOCUMENT_LIMIT = 2    # passages from one document, per heading
+GUIDE_LIMIT = 1           # third-party guides, per heading
 FOREIGN_WORDS = ("foreign", "external", "non-resident", "nonresident", "branch", "overseas")
 FOREIGN_MARKERS = ("foreign company", "external company", "external companies")
 
@@ -193,13 +203,16 @@ def is_business_description(client, model: str, text: str) -> tuple[bool, int]:
         return False, 0
 
 
+def _document_key(hit: dict) -> str:
+    return hit.get("source_file") or hit["title"]
+
+
 def gather_sources(question: str) -> dict[int, dict]:
     """Search each relevant specialist's documents (local retrieval, zero tokens).
-    Each domain is searched twice (the question, then a fixed topic query), duplicates are
-    dropped, and passages about foreign companies are skipped unless the question asks."""
-    # Employer duties are always searched: almost every shop, salon or restaurant ends up
-    # with staff, and an owner who never typed the word "staff" still needs to hear about
-    # them. They get a smaller share of the passages so they cannot crowd out registration.
+    Each domain is searched twice (the question, then a fixed topic query) and the results
+    are taken in turn. Official documents come before guides, a domain uses at most one
+    guide and at most two passages per document, duplicates are dropped, and passages
+    about foreign companies are skipped unless the question asks."""
     domains = ["registration", "tax", "employment"]
     asks_foreign = any(word in question.lower() for word in FOREIGN_WORDS)
     floor = retrieval.score_floor()
@@ -207,26 +220,40 @@ def gather_sources(question: str) -> dict[int, dict]:
     seen: set[tuple] = set()
     for key in domains:
         scope = list(SPECIALISTS[key].scope)
-        taken = 0
-        limit = PASSAGE_LIMIT[key]
-        for query in (question, TOPIC_QUERIES[key]):
-            for hit in tools._fetch_hits(query, top_k=3, scope=scope):
-                if taken >= limit or hit["score"] < floor:
-                    continue
-                fingerprint = (hit["title"], hit["page"], hit["content"][:80])
-                if fingerprint in seen:
-                    continue
-                if not asks_foreign and _about_foreign_company(hit["content"]):
-                    continue
-                seen.add(fingerprint)
-                taken += 1
-                sources[len(sources) + 1] = {
-                    "title": hit["title"],
-                    "page": hit["page"],
-                    "source_type": hit["source_type"],
-                    "date": str(hit["doc_date"]) if hit["doc_date"] else "date unknown",
-                    "text": hit["content"][:SOURCE_CHARS],
-                }
+        searches = [
+            tools._fetch_hits(query, top_k=CANDIDATES_PER_QUERY, scope=scope)
+            for query in (question, TOPIC_QUERIES[key])
+        ]
+        # take the searches in turn: best of the question, best of the topic query, next...
+        candidates = [hit for group in zip_longest(*searches) for hit in group if hit]
+        rank = {"official": 0, "notice": 1, "guide": 2}
+        candidates.sort(key=lambda hit: rank.get(hit.get("source_type"), 1))  # stable: official, notices, guides
+        taken, guides, per_document = 0, 0, {}
+        for hit in candidates:
+            if taken >= PASSAGE_LIMIT[key] or hit["score"] < floor:
+                continue
+            document = _document_key(hit)
+            if per_document.get(document, 0) >= PER_DOCUMENT_LIMIT:
+                continue
+            is_guide = hit.get("source_type") == "guide"
+            if is_guide and guides >= GUIDE_LIMIT:
+                continue
+            fingerprint = (hit["title"], hit["page"], hit["content"][:80])
+            if fingerprint in seen:
+                continue
+            if not asks_foreign and _about_foreign_company(hit["content"]):
+                continue
+            seen.add(fingerprint)
+            taken += 1
+            guides += is_guide
+            per_document[document] = per_document.get(document, 0) + 1
+            sources[len(sources) + 1] = {
+                "title": hit["title"],
+                "page": hit["page"],
+                "source_type": hit["source_type"],
+                "date": str(hit["doc_date"]) if hit["doc_date"] else "date unknown",
+                "text": hit["content"][:SOURCE_CHARS],
+            }
     return sources
 
 
@@ -238,6 +265,9 @@ SYSTEM_PROMPT = (
     "of the source that states it.\n"
     "2. Include a fee only if its exact amount appears in that source. Use ISO "
     "currency codes.\n"
+    "2b. Never take a fee from a source whose type is 'guide'. Guides explain the "
+    "process only. For fees, use official sources or say to check with the council "
+    "or the Registrar.\n"
     "3. Never write placeholders such as '?', 'TBD', 'N/A' or 'see Act'.\n"
     "4. If the sources do not state something an owner needs (fees, timelines, forms, "
     "registration steps), list it under not_covered instead of guessing.\n"
