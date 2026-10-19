@@ -42,18 +42,24 @@ SPECIALISTS: dict[str, Specialist] = {
     "registration": Specialist(
         title="Registration and licensing",
         description=(
-            "the Companies and Other Business Entities Act 2019 and the Harare "
-            "business licence application form"
+            "the Companies and Other Business Entities Act 2019, the Shop Licences Act, "
+            "the Harare business licence form and licensing page, and guides to company "
+            "and shop licence registration"
         ),
-        scope=("cobe_act_2019.pdf", "harare_shop_licence_form.pdf"),
+        scope=("cobe_act_2019.pdf", "harare_shop_licence_form.pdf", "shop_licences_act.pdf",
+               "harare_business_licensing.pdf", "ibzim_shop_licence.pdf", "cdh_incorporation_%"),
         tools=("search_regulations", "calculate_fees"),
     ),
     "tax": Specialist(
         title="Tax",
         description=(
-            "the Value Added Tax Act, the Finance Act 2024 and ZIMRA public notices"
+            "the Value Added Tax Act, the Income Tax Act, the Finance Act 2024, ZIMRA public "
+            "notices, ZIMRA guidance for new businesses and traders, and a guide to taxes for "
+            "small businesses"
         ),
-        scope=("vat_act.pdf", "finance_act_2024.pdf", "zimra_pn_%"),
+        scope=("vat_act.pdf", "income_tax_act.pdf", "finance_act_2024.pdf", "zimra_pn_%",
+               "zimra_new_businesses.pdf", "zimra_new_trader_faq.pdf",
+               "zimra_taxpayer_registration.pdf", "ibzim_zimra_smes.pdf"),
         tools=("search_regulations", "check_deadline", "calculate_fees"),
     ),
     "employment": Specialist(
